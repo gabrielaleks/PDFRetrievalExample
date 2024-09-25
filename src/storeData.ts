@@ -1,17 +1,33 @@
 import { OpenAIEmbeddings } from "@langchain/openai";
 import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
 import { HNSWLib } from "@langchain/community/vectorstores/hnswlib";
+import { Document } from "langchain/document";
+
+interface Split {
+  pageContent: string;
+  metadata: {
+    prefix: string;
+    number: string;
+    [key: string]: any;
+  };
+}
+
+interface ChapterRange {
+  chapter: number;
+  start: number;
+  end: number;
+}
 
 // Save to vector store
 await processPdfFile();
 
-async function processPdfFile() {
+async function processPdfFile(): Promise<HNSWLib> {
   // Loading 
   const loader = new PDFLoader("./data/nist1.pdf");
   const docs = await loader.load();
 
   // Splitting and processing. Adds ONLY requirements to vector store
-  const splitsWithMetadata = [];
+  const splitsWithMetadata: Split[] = [];
 
   for (const doc of docs) {
     const splits = customSplitter(doc.pageContent);
@@ -27,13 +43,12 @@ async function processPdfFile() {
     splitsWithMetadata.push(...splits);
   }
 
-
   // Embedding
   const embeddings = new OpenAIEmbeddings({ openAIApiKey: process.env.OPENAI_API_KEY });
 
   // Storing embeddings in vector store
   const vectorstore = await HNSWLib.fromDocuments(
-    splitsWithMetadata,
+    splitsWithMetadata as Document[],
     embeddings
   );
 
@@ -42,7 +57,7 @@ async function processPdfFile() {
   return vectorstore;
 }
 
-function customSplitter(text) {
+function customSplitter(text: string): Split[] {
   const regex = /(PR:|PA:|FR:|PF:)(\d+\.\d+\s+.*?)(?=(PR:|PA:|FR:|PF:)|$)/gs;
   const matches = [...text.matchAll(regex)];
   
@@ -55,8 +70,8 @@ function customSplitter(text) {
   }));
 }
 
-function getChapter(pageNumber) {
-  const chapterRanges = [
+function getChapter(pageNumber: number): number | null {
+  const chapterRanges: ChapterRange[] = [
     { chapter: 0, start: 1, end: 10 },
     { chapter: 1, start: 11, end: 15 },
     { chapter: 2, start: 16, end: 22 },

@@ -3,9 +3,10 @@ import { ChatPromptTemplate, MessagesPlaceholder } from "@langchain/core/prompts
 import { StringOutputParser } from "@langchain/core/output_parsers";
 import { createStuffDocumentsChain } from "langchain/chains/combine_documents";
 import { HNSWLib } from "@langchain/community/vectorstores/hnswlib";
+import { Document } from "langchain/document";
 
-const userQuestion = "Generate me a complete, detailed list of requirements from chapter 6 ONLY for a moderate level symmetric key management system.";
-// const userQuestion = "Extract requirements from chapter 6.";
+// const userQuestion = "Generate me a complete, detailed list of requirements from chapter 6 ONLY for a moderate level symmetric key management system.";
+const userQuestion = "Extract requirements from chapter 2.";
 
 const queries = await multiQueryGenerator(userQuestion);
 console.log(queries);
@@ -13,7 +14,7 @@ console.log(queries);
 const documents = await retrieveDocumentsBasedOnMultiQueries(queries);
 console.log("Number of documents: " + documents.length);
 
-const answers = [];
+const answers: string[] = [];
 const documentChunks = splitArrayIntoChunks(documents, 30);
 for (const documentChunk of documentChunks) {
   console.log(documentChunk);
@@ -30,7 +31,7 @@ if (answers.length > 1) {
 
 console.log(finalAnswer);
 
-async function multiQueryGenerator(userQuestion) {
+async function multiQueryGenerator(userQuestion: string): Promise<string[]> {
   const llm = new ChatOpenAI({ model: "gpt-4o-mini", openAIApiKey: process.env.OPENAI_API_KEY, temperature: 0 });
 
   const template = `You are an AI language model assistant. Your task is to process user questions about requirements in a document with multiple chapters. Follow these steps:
@@ -84,15 +85,15 @@ async function multiQueryGenerator(userQuestion) {
   return response.split("\n");
 }
 
-async function getLocalVectorStore() {
+async function getLocalVectorStore(): Promise<HNSWLib> {
   const vectorStoreDirectory = './vectorstore';
   const embeddings = new OpenAIEmbeddings({ openAIApiKey: process.env.OPENAI_API_KEY });
   const loadedVectorStore = await HNSWLib.load(vectorStoreDirectory, embeddings);
   return loadedVectorStore;
 }
 
-async function retrieveDocumentsBasedOnMultiQueries(queries) {
-  let docs = [];
+async function retrieveDocumentsBasedOnMultiQueries(queries: string[]): Promise<Document[]> {
+  let docs: Document[] = [];
   for (const query of queries) {
     const chapterMatch = query.match(/chapter (\d+)/);
     const chapterNumber = chapterMatch ? parseInt(chapterMatch[1]) : null;
@@ -103,7 +104,7 @@ async function retrieveDocumentsBasedOnMultiQueries(queries) {
     const retriever = vectorStore.asRetriever({
       k: 150,
       verbose: false,
-      filter: (doc) => {
+      filter: (doc: Document) => {
         const chapterMatches = doc.metadata.chapter === chapterNumber;
         const prefixMatches = prefixType ? doc.metadata.prefix === prefixType : true;
         return chapterMatches && prefixMatches;
@@ -114,13 +115,13 @@ async function retrieveDocumentsBasedOnMultiQueries(queries) {
     docs = [...docs, ...retrievedDocs];
   }
 
-  docs = removeDuplicateDocs(docs);
+  docs = removeDuplicatedDocs(docs);
 
   return docs;
 }
 
-function removeDuplicateDocs(docs) {
-  const uniqueDocsMap = new Map();
+function removeDuplicatedDocs(docs: Document[]): Document[] {
+  const uniqueDocsMap = new Map<string, Document>();
 
   for (const doc of docs) {
     const key = createUniqueKey(doc);
@@ -132,12 +133,12 @@ function removeDuplicateDocs(docs) {
   return Array.from(uniqueDocsMap.values());
 }
 
-function createUniqueKey(doc) {
+function createUniqueKey(doc: Document): string {
   return `${doc.metadata.prefix}:${doc.metadata.number}-${doc.metadata.chapter}`;
 }
 
-function splitArrayIntoChunks(arrayToReduce, maxChunkSize) {
-  return arrayToReduce.reduce((resultArray, item, index) => {
+function splitArrayIntoChunks<T>(arrayToReduce: T[], maxChunkSize: number): T[][] {
+  return arrayToReduce.reduce((resultArray: T[][], item: T, index: number) => {
     const chunkIndex = Math.floor(index / maxChunkSize);
 
     if (!resultArray[chunkIndex]) {
@@ -150,7 +151,7 @@ function splitArrayIntoChunks(arrayToReduce, maxChunkSize) {
   }, []);
 }
 
-async function askQuestionWithRetrievedDocuments(documents, userQuestion) {
+async function askQuestionWithRetrievedDocuments(documents: Document[], userQuestion: string): Promise<string> {
   const systemTemplate = `
   **You are an AI assistant with specialized knowledge in cybersecurity and NIST guidelines. Your role is to analyze NIST documents and extract all detailed requirements based on the user's query.**
 
@@ -232,7 +233,7 @@ async function askQuestionWithRetrievedDocuments(documents, userQuestion) {
   return answer;
 }
 
-async function agglutinateAnswers(answers) {
+async function agglutinateAnswers(answers: string[]): Promise<string> {
   const llm = new ChatOpenAI({ model: "gpt-4o-2024-08-06", openAIApiKey: process.env.OPENAI_API_KEY, temperature: 0, maxTokens: -1 });
 
   const template = `You are an AI language model specialized in text agglutination. Your task is to combine multiple pieces of text into a single, coherent document.
@@ -284,7 +285,7 @@ async function agglutinateAnswers(answers) {
   ## Chapter 2: Profile Basics
   ### Framework Requirements (FR)
   1. **FR:2.1**  
-    A Federal CKMS design shall meet all “shall” requirements of the Framework [SP 800-130].
+    A Federal CKMS design shall meet all "shall" requirements of the Framework [SP 800-130].
 
   2. **FR:2.2**  
     The CKMS design shall specify the estimated security strength of each cryptographic technique that is employed to protect keys and their bound metadata.

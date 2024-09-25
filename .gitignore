@@ -2,3 +2,5 @@
 node_modules
 vectorstore
 output
+.DS_Store
+dist

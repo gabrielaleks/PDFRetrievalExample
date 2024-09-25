@@ -3,10 +3,17 @@
     "@langchain/community": "^0.3.1",
     "@langchain/core": "^0.3.3",
     "@langchain/openai": "^0.3.0",
+    "@types/node": "^22.7.0",
     "faiss-node": "^0.5.1",
     "hnswlib-node": "^3.0.0",
     "pdf-parse": "^1.1.1",
-    "pdf-parse-debugging-disabled": "^1.1.1"
+    "pdf-parse-debugging-disabled": "^1.1.1",
+    "typescript": "^5.6.2"
   },
-  "type": "module"
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "store": "node --env-file=.env dist/storeData.js",
+    "query": "node --env-file=.env dist/queryData.js"
+  }
 }
